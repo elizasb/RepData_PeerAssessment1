@@ -5,8 +5,16 @@ html_document:
 keep_md: true
 ---
 
+# Reproducible Research: Peer Assessment 1
+# Date: 1/18/2015
 ## Introduction
-In this assignment, we read in data Xyz.
+In this assignment, we analyzed data from a personal activity monitoring
+device. This device collects data at 5 minute intervals through out the
+day. The data consists of two months of data from an anonymous
+individual collected during the months of October and November, 2012
+and include the number of steps taken in 5 minute intervals each day.
+
+We evaluated the data distribution for the total number of steps taken per day (mean, median, histogram) and see how this changes when missing data is imputed. We also calculate the average number of steps as a function of time of day and look at the difference in this between weekdays and weekends.
 
 Install packages and load libraries:
 ```{r pkg}
@@ -14,6 +22,8 @@ install.packages("lubridate",repos="http://cran.rstudio.com/")
 library(lubridate)
 install.packages("plyr",repos="http://cran.rstudio.com/")
 library(plyr)
+install.packages("lattice",repos="http://cran.rstudio.com/")
+library(lattice)
 ```
 
 ## Loading and preprocessing the data
@@ -26,13 +36,13 @@ timestamp<-as.POSIXlt(activity$date)
 For this part of the assignment, the missing values in
 the dataset are ignored.
 
-1. A histogram of the total number of steps taken each day
+* A histogram of the total number of steps taken each day
 ```{r histstepsperday}
 daytotal<-tapply(activity$steps,activity$date,sum) 
 hist(daytotal,main="Histogram of Total Number of Steps per Day",xlab="Daily steps")
 ```
 
-2. The **mean** and **median** total number of steps taken per day
+* The **mean** and **median** total number of steps taken per day
 The mean total number of steps per day:
 ```{r meanstepsperday}
 daytotal.mean<-mean(daytotal,na.rm=TRUE)
@@ -53,7 +63,7 @@ interval.mean<-tapply(activity$steps,activity$interval,mean,na.rm=TRUE)
 #Use lubridate to convert the five minute intervals into time of day and create
 #new variable xt which is of type POSIXct (ranges from 00:00 to 23:55)
 x<-ymd("09-01-01") #arbitrary date picked (since date isn't part of the plot)
-m=minutes(seq(from=0,to=60*24-5,by=5))
+m<-minutes(seq(from=0,to=60*24-5,by=5))
 xt<-ymd(x)+m
 #Create the plot
 plot(xt,interval.mean,
@@ -118,7 +128,7 @@ Median of filled data for total number of steps taken per day:
 daytotal.filled.median=median(daytotal.filled,na.rm=TRUE)
 daytotal.filled.median
 ```
-Do these values differ from the estimates from the first part of the assignment?
+Do these values differ from the estimates from the first part of the assignment? 
 The difference in mean values:
 ```{r meandif}
 daytotal.filled.mean-daytotal.mean
@@ -128,18 +138,26 @@ The difference in median values:
 daytotal.filled.median-daytotal.median
 ```
 
-What is the impact of imputing missing data on the estimates of the total daily number of steps?
-*E (will bump up min? ); overplot of two histograms
+The mean does not change but the median slightly does.
+
+What is the impact of imputing missing data on the estimates of the total daily
+number of steps?
+
+All of the NA's occur on eight days and on these days there are only NA's (e.g. 
+all 288 intervals for these days are NA's), as shown below:
+```{r nanimpact}
+dt.nan<-tapply(is.na(activity$steps),activity$date,sum)
+unique(dt.nan)
+```
+Since the imputing strategy was to fill missing values with the interval average, 
+the filled dataset (since the sum of the interval averages is the daily mean 
+for the original dataset) now includes eight days which all have the same daily
+total (the mean).  Because of this the median and mean for the filled dataset
+are equivalent.  We also see narrowing of the histogram in the case of the filled
+dataset (since added 8 points at the data mean). This is shown in the quartiles.
 ```{r compare}
 summary(daytotal.filled)
 summary(daytotal)
-
-hist(daytotal,col="black")
-hist(daytotal.filled,main="Histograms for Total Number of Steps per Day",xlab="Daily steps",col="red")
-legend_txt<-c("Original data w/ NAs","Data filled w/ 5-min avg. values")
-legend("topright", lty= 1, col = c("black","red"), legend = legend_txt)
-range(daytotal)
-range(daytotal.filled)
 ```
 
 ## Are there differences in activity patterns between weekdays and weekends?
@@ -159,12 +177,20 @@ dayofweek[grepl("^S",dayname)]<-"weekend"
 
 2. Make a panel plot containing a time series plot (i.e. `type = "l"`) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). 
 ```{r wkdayplot}        
-weekday.mean<-with(activity.filled[dayofweek=="weekday",],tapply(steps,interval,mean,na.rm=TRUE))
-weekend.mean<-with(activity.filled[dayofweek=="weekend",],tapply(steps,interval,mean,na.rm=TRUE))
+weekday.mean<-with(activity.filled[dayofweek=="weekday",],tapply(steps,interval,
+        mean,na.rm=TRUE))
+weekend.mean<-with(activity.filled[dayofweek=="weekend",],tapply(steps,interval,
+        mean,na.rm=TRUE))
 
-par(mfrow=c(2,1))
-plot(xt,weekend.mean,main="Weekend",xlab="Interval",ylab="Number of Steps",type="l",
-     ylim=c(0,250))
-plot(xt,weekday.mean,main="Weekday",xlab="Interval",ylab="Number of Steps",type="l",
-     ylim=c(0,250))
+#Create regular variable for interval (so as opposed to time of day, it is minutes in day)
+m<-seq(from=0,to=60*24-5,by=5) 
+combine<-data.frame(weekend.mean,weekday.mean,m)
+colnames(combine)<-c("Weekend","Weekday","m")
+xyplot(Weekend + Weekday ~ m, data = combine, layout = c(1,2), type = "l", 
+       outer = TRUE, xlab="Interval (minutes)", ylab="Number of steps")
 ```
+
+We can see differences between the weekend and weekday daily activity patterns. 
+The weekday time series shows more activity starting earlier in the morning and a sharper morning peak centered at {r interval.max}. The weekend shows later activity
+at night and also a greater number of peaks in activity throughout the day.
+
